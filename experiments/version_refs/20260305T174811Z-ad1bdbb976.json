@@ -1,0 +1,81 @@
+{
+  "snapshot_id": "20260305T174811Z-ad1bdbb976",
+  "label": "literature-run-2026-03-05T17:47:31.979993Z",
+  "created_at_utc": "20260305T174811Z",
+  "git": {
+    "head_short": "dbfc936",
+    "status_porcelain": [
+      "?? .gitignore",
+      "?? README.md",
+      "?? experiments/",
+      "?? idea_scoring/",
+      "?? literature_search_agent.py",
+      "?? note_generation_test.md",
+      "?? prompts/",
+      "?? related_works_test.md",
+      "?? requirements.txt",
+      "?? semantic_scholar.py",
+      "?? tree_of_thought.py",
+      "?? version_snapshot.py"
+    ]
+  },
+  "file_count": 11,
+  "aggregate_sha256": "ad1bdbb976e57d3e7ef2807ebbd4e5bbe9863b392c69f1167b3105b6946f6468",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "43d71480eaa485fb1dd2ad56d808e37f6dc206070ee09ef51d38f5f35a8c0f12",
+      "bytes": 6068
+    },
+    {
+      "path": "literature_search_agent.py",
+      "sha256": "f58806ec2f6baede81eaf0aa10a2b4145165e8e6baf22c45596803639707fbad",
+      "bytes": 54836
+    },
+    {
+      "path": "prompts/assistant_final_round_system_prompt.md",
+      "sha256": "5099b8ecfa77b5fd74374058abf71fd34729fc923e6889b28a2759e17332a8ff",
+      "bytes": 165
+    },
+    {
+      "path": "prompts/assistant_system_prompt.md",
+      "sha256": "ddc79173c90399d7f0432fbbf9e08c718defe67dc56b1e83aa1bce3388c51447",
+      "bytes": 132
+    },
+    {
+      "path": "prompts/final_synthesis_system_prompt.md",
+      "sha256": "a22a7944f3808c5fb459aa51689063b75262ad614d4ab161bf2d0b6048635fd4",
+      "bytes": 127
+    },
+    {
+      "path": "prompts/guide_final_round_system_prompt.md",
+      "sha256": "77a793aa57ef51d9bc22f8757cf3b681d8ebda8d4346ff396d56354c035a1e56",
+      "bytes": 230
+    },
+    {
+      "path": "prompts/guide_system_prompt.md",
+      "sha256": "3360dcc7423cbdc44364dee153c2d1a81ac5744f549e08db1b57338e6ed3b3a0",
+      "bytes": 821
+    },
+    {
+      "path": "prompts/seed_idea.md",
+      "sha256": "a719aa0ed462970f3a4e6a478d602382b092a8fd979736d163e38e360df1f284",
+      "bytes": 94
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "d1c4a70d27ca42a96dd6a5dfa6c1d8f3503d04aa56bb1738ae818c9eba40fe38",
+      "bytes": 48
+    },
+    {
+      "path": "semantic_scholar.py",
+      "sha256": "2ccddb344726b0ed56c7a16f9d88f232060d0629e84bec4fe387a478802f7d97",
+      "bytes": 9249
+    },
+    {
+      "path": "tree_of_thought.py",
+      "sha256": "21b84cc36fc1acf64738cd62aa9fa581acc49131292a231645c72e4bde01afa1",
+      "bytes": 13447
+    }
+  ]
+}
