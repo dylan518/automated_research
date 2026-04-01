@@ -1,119 +1,97 @@
-# Tree of Thought (v0)
+# Tree of Thought: LLM Research Idea Generation
 
-## Idea Scoring Module (new)
+This project explores how iterative multi-round reasoning affects the quality of LLM-generated research ideas. We built a director-actor ideation loop, scored outputs with blind pairwise Elo tournaments, and ran controlled experiments to find the optimal number of reasoning rounds.
 
-There is now a reusable scoring module at `idea_scoring/` for evaluating idea-generation approaches with:
+## Key Findings
 
-- weighted rubric scoring
-- Bradley-Terry style Elo pairwise ranking
-- optional blended final score
+We swept over 1, 4, 8, 16, and 32 reasoning rounds across two topics and judged outputs with a blind pairwise LLM tournament (Bradley-Terry Elo, `gpt-4.1` judge, 150 pairwise judgments per sweep).
 
-See `idea_scoring/README.md` for usage.
+| Rounds | Hallucination eval (rank) | Multiagent systems (rank) |
+|--------|--------------------------|--------------------------|
+| 1      | 5                        | 5                        |
+| 4      | 4                        | 2                        |
+| **8**  | **2**                    | **1**                    |
+| 16     | 3                        | 3                        |
+| 32     | 1                        | 4                        |
 
-## Agentic Literature Search (new)
+**8 rounds is the most robust setting.** It finishes top-2 in both sweeps and is never dominated. 1–4 rounds consistently underperforms (p<0.001 separation from r008+). 32 rounds shows diminishing or reversed returns on open-ended topics — the hypothesis is that by round 32 the director saturates and begins narrowing rather than expanding the concept.
 
-This repo now includes a two-action literature workflow built around Semantic Scholar:
-
-- `QUERY` (one or more retrieval operations)
-- `WRITE_TO_MEMORY` (promote exactly 1 high-impact `paper_id`)
-
-System behavior:
-
-- After each `QUERY`, the run writes a required `results_summary` into `queries.jsonl`.
-- Each query summary also includes a required `best_paper_candidate` + explicit rationale.
-- Action decisions use full last-query paper JSON (not summary-only context).
-- After each `WRITE_TO_MEMORY`, the system only generates/stores paper notes.
-- During `WRITE_TO_MEMORY`, notes generation receives full paper text from open-access PDFs when available.
-- At the end of the run, a final synthesis agent writes `related_works.md` from all accumulated notes and the initial concept.
-- Workspace state resets at the start of each run by default.
-- Agent policy prioritizes high-impact, strong works before writing to memory.
-- Notes/synthesis are tuned for field-overview style rather than single-paper narration.
-
-### Required env vars
-
-```env
-OPENAI_API_KEY=...
-S2_KEY=...
-```
-
-### Run
-
-```bash
-python literature_search_agent.py --steps 8
-```
-
-Default concept:
-
-- `self play RL in LLMs. Challenger, Judge, Solver setups.`
-
-You can override it by passing a custom concept as the first argument.
-
-### Outputs
-
-- `lit_workspace/queries.jsonl` - query actions + summaries
-- `lit_workspace/paper_bank.json` - promoted paper IDs
-- `lit_workspace/paper_notes.json` - per-paper detailed free-form notes with explicit related-work focus (incl. prior-work mapping and reference leads) used for synthesis
-- `lit_workspace/related_works.md` - canonical evolving related works text
-- `lit_workspace/metadata_cache/` - cached Semantic Scholar paper metadata
-- `last_run_report.md` - detailed run report with raw action/query outputs
-- `literature_search.log` - runtime logs
-
-### Important flags
-
-- `--agent-model` (default `gpt-5-nano`)
-- `--summary-model` (default `gpt-5-nano`)
-- `--updater-model` (default `gpt-5-nano`)
-- `--default-query-limit` (default `12`)
-- `--workspace-dir` (default `lit_workspace`)
-- `--report-file` (default `last_run_report.md`)
-- `--pdf-max-chars` (default `250000`, full-paper text budget per new paper)
-- `--no-reset-workspace` to keep prior run state
-- `concept` positional arg is optional (defaults to the self-play RL concept above)
-
-### Isolated tests (no full loop)
-
-1) Note generation only for one paper:
-
-```bash
-python literature_search_agent.py --test-note-paper-id "<paper_id>" --test-note-out note_generation_test.md
-```
-
-2) Related Works generation only from saved notes:
-
-```bash
-python literature_search_agent.py --test-related-from-notes --workspace-dir lit_workspace --test-related-out related_works_test.md
-```
-
-## Version references for comparisons
-
-To create a reproducible code reference ID before running experiments:
-
-```bash
-python version_snapshot.py --label "baseline-before-elo"
-```
-
-This writes a snapshot JSON under `experiments/version_refs/` with:
-- `snapshot_id`
-- git head/status
-- per-file SHA256 hashes
-- aggregate SHA256 hash for the full code snapshot
+See [`experiments/findings_report.md`](experiments/findings_report.md) for full statistical analysis.
 
 ---
 
-Small prototype that runs a two-role LLM loop to refine an idea:
+## How Idea Generation Works
 
-- **Guide model** critiques current direction and proposes the next prompt.
-- **Assistant model** responds with a refined idea.
-- After N rounds, a final synthesis step produces a consolidated concept.
+Ideas are generated by a **director-actor loop** (`idea_generation/`):
 
-By default, this v0 uses:
+1. The **director** issues a structured `REASONING: / ACTION:` directive each round.
+2. `extract_action_directive` parses the `ACTION:` line.
+3. The **actor** executes that action against the topic + prior round history.
+4. After all rounds, a **final synthesis** call formats the result using `final_concept_format.md`.
 
-- model: `gpt-5-nano` for guide, assistant, and synthesis (fast testing)
-- thesis prompt: `create a genetic algo that uses some sort of matching algorithim to find optimal partners.`
+Each round the director can steer the actor to explore a new angle, pressure-test a claim, ground the idea in prior work, or refine the concept. The loop is pure text: no tool calls, no retrieval — just iterative reasoning.
 
-## Quick start
+Prompt files are read from `idea_workspace/` (auto-created from defaults on first run):
 
-1. Create a virtual environment and install deps:
+| File | Purpose |
+|------|---------|
+| `topic.md` | Research question / seed |
+| `director_prompt.md` | Director system prompt |
+| `actor_prompt.md` | Actor system prompt |
+| `final_concept_prompt.md` | Final synthesis instructions |
+| `final_concept_format.md` | Output schema |
+| `response_style.md` | Style constraints |
+
+### Run idea generation
+
+```bash
+# Default: director-actor, 8 rounds, topic-only
+python -m idea_generation.agent
+
+# Explicit options
+python -m idea_generation.agent \
+  --framework director-actor \
+  --rounds 8 \
+  --no-related-works \
+  --model gpt-4.1
+```
+
+Outputs are written to `idea_workspace/idea_generation_output.md` (clean trace) and `idea_workspace/idea_generation_raw.md` (full payloads). Each run **overwrites** these files.
+
+---
+
+## How Ideas Are Scored
+
+Scoring uses a blind pairwise tournament with Bradley-Terry Elo (`idea_scoring/`):
+
+1. Generate one idea per round count.
+2. Extract each final concept.
+3. For each pair, send both concepts to an LLM judge (no round-count labels). The judge picks the stronger idea.
+4. Repeat `judge_repeats × tournament_passes` times per pair.
+5. Fit Bradley-Terry Elo ratings from all pairwise outcomes.
+
+The Elo model is logistic with base 1500, K=24. Statistical significance is assessed per pair with an exact binomial sign test; global rank stability is validated with 5000-resample bootstrap.
+
+### Run the Elo sweep experiment
+
+```bash
+# Sweep rounds 1 4 8 16 32, topic-only
+python experiments/elo_rounds_sweep.py
+
+# Re-judge an existing generated run without regenerating
+python experiments/elo_rounds_sweep.py \
+  --run-dir experiments/elo_rounds_sweep/<timestamp> \
+  --skip-generation
+```
+
+Results are written to `experiments/elo_rounds_sweep/<timestamp>/`:
+- `manifest.json` — Elo ratings and full judgment log
+- `idea_rXXX_clean.md` — clean idea output per round count
+- `idea_rXXX_raw.md` — full raw output per round count
+
+---
+
+## Setup
 
 ```bash
 python3 -m venv .venv
@@ -121,69 +99,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Put your key in `.env` at project root:
+Create `.env` at repo root:
 
 ```env
 OPENAI_API_KEY=your-key-here
+S2_KEY=your-semantic-scholar-key-here   # only needed for literature search
 ```
 
-3. Run with defaults (your thesis + fast model):
+---
 
-```bash
-python tree_of_thought.py
-```
+## Other Components
 
-Or provide a custom thesis:
-
-```bash
-python tree_of_thought.py "Build a peer-to-peer study matching app for math students" --rounds 3
-```
-
-## Readable visualization
-
-Every run writes a markdown report to `last_run_report.md` (or your custom path via `--report-file`).
-The report includes:
-
-- model settings used in the run
-- mermaid flowchart of round progression
-- round-by-round guide/assistant transcript
-- final concept, implementation outline, and open questions
-
-If your markdown viewer supports Mermaid, you will see a diagram like:
-
-```mermaid
-flowchart TD
-  A["Original Thesis"] --> G1["Guide 1: critique + next prompt"] --> S1["Assistant 1: refined idea"]
-  S1 --> G2["Guide 2: critique + next prompt"] --> S2["Assistant 2: refined idea"]
-  S2 --> F["Final Synthesis"]
-```
-
-## CLI options
-
-- `--rounds` number of guide/assistant cycles (default `5`)
-- `--guide-model` model for guide role (default `gpt-5-nano`)
-- `--assistant-model` model for assistant role (default `gpt-5-nano`)
-- `--synthesis-model` model for final synthesis (default `gpt-5-nano`)
-- `--report-file` markdown report output path (default `last_run_report.md`)
-- `--log-file` runtime log output path (default `tree_of_thought.log`)
-- `--log-level` log verbosity: `DEBUG|INFO|WARNING|ERROR` (default `INFO`)
-- `--no-live` disable round-by-round live console printing
-- `--json` print full JSON output
-
-## Logging
-
-Each run now writes structured logs (timestamp + level + message) to:
-
-- console
-- `tree_of_thought.log` (or your `--log-file`)
-
-Example:
-
-```bash
-python tree_of_thought.py --rounds 4 --log-level DEBUG --log-file run_debug.log
-```
-
-## Notes
-
-- This is intentionally a small v0: single script, no persistence/database yet.
-- The script prefers `.env` values over shell/global exports for local project runs.
+- **Literature search** (`literature_search_agent.py`): agentic Semantic Scholar loop that builds `lit_workspace/related_works.md`, which can be fed to idea generation via `--related-works`.
+- **Scoring utilities** (`idea_scoring/`): `RubricScorer`, `BradleyTerryElo`, `blend_rubric_and_elo` — importable, no CLI.
+- **Tests**: `python -m pytest tests/`
